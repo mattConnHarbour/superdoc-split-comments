@@ -28,6 +28,7 @@ export class CommentsSidebarController {
   private container: HTMLElement | null = null;
   private refreshTimer?: number;
   private scrollTimer?: number;
+  private highlightTimer?: number;
   private user: { name: string };
   private onCommentsChange: (comments: SidebarComment[]) => void;
   private onActiveCommentIdsChange: (ids: string[]) => void;
@@ -58,6 +59,7 @@ export class CommentsSidebarController {
   destroy() {
     clearTimeout(this.refreshTimer);
     clearTimeout(this.scrollTimer);
+    clearTimeout(this.highlightTimer);
     this.textCache.clear();
     this.anchorCache.clear();
     this.comments = [];
@@ -94,10 +96,25 @@ export class CommentsSidebarController {
     this.onActiveCommentIdsChange([comment.id]);
     this.clearEditorHighlights();
 
-    // Scroll to comment element directly (avoid scrollToComment which triggers event loop)
+    // IMPORTANT: We scroll directly to the DOM element instead of using SuperDoc's
+    // scrollToComment() method. This is because scrollToComment() internally calls
+    // setActiveComment(), which fires a 'commentsUpdate' event with type 'selected'.
+    // That event triggers our onEditorCommentSelected handler, which scrolls the
+    // sidebar, which can cause an infinite loop of scroll events.
     const escaped = CSS.escape(comment.id);
-    const element = this.container?.querySelector(`[data-comment-ids*="${escaped}"]`);
-    element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const elements = this.container?.querySelectorAll(`[data-comment-ids*="${escaped}"]`);
+
+    // Scroll to the first element
+    elements?.[0]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    // Briefly highlight ALL elements for this comment
+    if (elements && elements.length > 0) {
+      elements.forEach((el) => el.classList.add('sd-sidebar-anchor-focus'));
+      clearTimeout(this.highlightTimer);
+      this.highlightTimer = window.setTimeout(() => {
+        elements.forEach((el) => el.classList.remove('sd-sidebar-anchor-focus'));
+      }, 1500);
+    }
   };
 
   // Editor → Sidebar (event handler)

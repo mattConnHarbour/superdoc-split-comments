@@ -406,9 +406,7 @@ input {
 }
 
 .sd-sidebar-anchor-focus {
-  outline: 0 !important;
-  background: var(--sd-comments-highlight-external-active, #b1124b66) !important;
-  box-shadow: inset 0 -2px 0 var(--sd-comments-highlight-external-base, #b1124b) !important;
+  background: #fde047 !important;
 }
 
 @media (max-width: 860px) {
