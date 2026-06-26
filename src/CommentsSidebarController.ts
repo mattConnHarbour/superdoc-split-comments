@@ -129,7 +129,12 @@ export class CommentsSidebarController {
 
     const status = item?.status || (item?.resolvedTime ? 'resolved' : 'active');
     if (status === 'deleted') return null;
-    if (item?.trackedChange && !this.getCommentText(item, id)) return null;
+
+    // Filter out tracked changes unless they have an explicit comment attached
+    if (item?.trackedChange) {
+      const hasExplicitComment = item?.commentText || item?.comment?.text || item?.comment?.body || this.textCache.has(id);
+      if (!hasExplicitComment) return null;
+    }
 
     return {
       id,
