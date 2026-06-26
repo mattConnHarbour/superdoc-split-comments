@@ -6,8 +6,8 @@ import { CommentsSidebarController, type SidebarComment, formatCommentDate } fro
 type DocumentMode = 'editing' | 'suggesting' | 'viewing';
 type Status = 'Loading sample document' | 'Ready' | 'No document loaded';
 
-const SAMPLE_DOCUMENT = '/docs/tracked-changes-comments-test.docx';
-const CURRENT_USER = { name: 'Vivienne', email: 'vivienne@example.com' };
+const SAMPLE_DOCUMENT = '/docs/default.docx';
+const CURRENT_USER = { name: 'SuperDoc User', email: 'user@example.com' };
 
 export default function App() {
   const [file, setFile] = useState<File | string>(SAMPLE_DOCUMENT);
@@ -16,6 +16,7 @@ export default function App() {
   const [comments, setComments] = useState<SidebarComment[]>([]);
   const [activeCommentIds, setActiveCommentIds] = useState<string[]>([]);
   const [activeTrackText, setActiveTrackText] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const superdocRef = useRef<any>(null);
@@ -103,7 +104,7 @@ export default function App() {
       superdocRef.current?.destroy();
       superdocRef.current = null;
     };
-  }, [file, mode]);
+  }, [file]);
 
   const changeMode = (nextMode: DocumentMode) => {
     setMode(nextMode);
@@ -134,7 +135,15 @@ export default function App() {
     controllerRef.current?.scheduleRefreshComments();
   };
 
-  const exportDocx = () => superdocRef.current?.export({ exportedName: 'inline-display-mode-demo' });
+  const exportDocx = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      await superdocRef.current?.export({ exportedName: 'superdoc-review-demo' });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const focusComment = (comment: SidebarComment) => {
     controllerRef.current?.focusCommentInEditor(comment);
@@ -156,10 +165,6 @@ export default function App() {
           />
           Upload DOCX
         </label>
-
-        <button className="button secondary" type="button" onClick={() => setFile(SAMPLE_DOCUMENT)}>
-          Reset Sample
-        </button>
 
         <div className="segmented" aria-label="Document mode">
           {(['editing', 'suggesting', 'viewing'] as const).map((option) => (
@@ -183,8 +188,8 @@ export default function App() {
         <button className="button danger" type="button" onClick={rejectAll}>
           Reject All
         </button>
-        <button className="button secondary" type="button" onClick={exportDocx}>
-          Export
+        <button className="button secondary" type="button" onClick={exportDocx} disabled={exporting}>
+          {exporting ? <span className="spinner" /> : 'Export'}
         </button>
       </header>
 

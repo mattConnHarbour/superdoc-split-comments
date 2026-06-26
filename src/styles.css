@@ -113,6 +113,25 @@ input {
   color: #435365;
 }
 
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #b9c5d0;
+  border-top-color: #435365;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .segmented {
   display: inline-grid;
   grid-template-columns: repeat(3, minmax(86px, 1fr));

@@ -27,6 +27,7 @@ export class CommentsSidebarController {
   private superdoc: any = null;
   private container: HTMLElement | null = null;
   private refreshTimer?: number;
+  private scrollTimer?: number;
   private user: { name: string };
   private onCommentsChange: (comments: SidebarComment[]) => void;
   private onActiveCommentIdsChange: (ids: string[]) => void;
@@ -42,12 +43,21 @@ export class CommentsSidebarController {
   init(superdoc: any, container: HTMLElement) {
     this.superdoc = superdoc;
     this.container = container;
-    superdoc?.activeEditor?.on?.('commentsUpdate', this.onEditorCommentSelected);
+    this.subscribeToEditorEvents();
     this.scheduleRefreshComments();
+  }
+
+  private subscribeToEditorEvents() {
+    this.superdoc?.activeEditor?.on?.('commentsUpdate', this.onEditorCommentSelected);
+  }
+
+  private unsubscribeFromEditorEvents() {
+    this.superdoc?.activeEditor?.off?.('commentsUpdate', this.onEditorCommentSelected);
   }
 
   destroy() {
     clearTimeout(this.refreshTimer);
+    clearTimeout(this.scrollTimer);
     this.textCache.clear();
     this.anchorCache.clear();
     this.comments = [];
@@ -84,25 +94,25 @@ export class CommentsSidebarController {
     this.onActiveCommentIdsChange([comment.id]);
     this.clearEditorHighlights();
 
-    const sd = this.superdoc;
-    if (!sd) return;
-
-    try {
-      sd.scrollToComment?.(comment.id, { behavior: 'smooth', block: 'center' });
-      sd.activeEditor?.commands?.setActiveComment?.({ commentId: comment.id });
-    } catch (e) {
-      console.warn('scrollToComment failed:', e);
-    }
+    // Scroll to comment element directly (avoid scrollToComment which triggers event loop)
+    const escaped = CSS.escape(comment.id);
+    const element = this.container?.querySelector(`[data-comment-ids*="${escaped}"]`);
+    element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
   // Editor → Sidebar (event handler)
   private onEditorCommentSelected = (data: any) => {
     if (data?.type !== 'selected' || !data?.activeCommentId) return;
+
     const match = this.comments.find((c) => c.id === data.activeCommentId);
     if (!match) return;
+
+    // Unsubscribe IMMEDIATELY to prevent more events during scroll
+    this.unsubscribeFromEditorEvents();
+
     this.onActiveTrackTextChange('');
     this.onActiveCommentIdsChange([match.id]);
-    this.scrollSidebar(match.id);
+    this.scheduleScrollSidebar(match.id);
   };
 
   private clearEditorHighlights() {
@@ -111,10 +121,15 @@ export class CommentsSidebarController {
     });
   }
 
-  private scrollSidebar(id: string) {
-    requestAnimationFrame(() => {
-      document.querySelector(`[data-sidebar-comment-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    });
+  private scheduleScrollSidebar(id: string) {
+    clearTimeout(this.scrollTimer);
+    this.scrollTimer = window.setTimeout(() => {
+      requestAnimationFrame(() => {
+        document.querySelector(`[data-sidebar-comment-id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'center', behavior: 'instant' });
+      });
+      // Resubscribe after scroll settles
+      setTimeout(() => this.subscribeToEditorEvents(), 500);
+    }, 150);
   }
 
   private stripHtml(html: string): string {
